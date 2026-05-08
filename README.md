@@ -12,3 +12,18 @@
 <p align="center">
   <img src="https://capsule-render.vercel.app/api?type=waving&color=00F5D4&height=100&section=footer"/>
 </p>
+<div align="center">
+  
+### Colaboradores implicados
+
+<a href="https://github.com/devhades02/Deivis-Bot-MD/graphs/contributors">
+<img src="https://contrib.rocks/image?repo=devhades02/Deivis-Bot-MD" /> 
+</a>
+
+### Gesto de agradecimiento
+
+[![TheShadowBrokers1](https://github.com/BrunoSobrino.png?size=60)](https://github.com/BrunoSobrino)
+
+### Autora del Proyecto
+
+[![GataNina-Li](https://github.com/devhades02.png?size=100)](https://github.com/devhades02)
