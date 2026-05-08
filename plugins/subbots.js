@@ -1,0 +1,142 @@
+// plugins/subbots.js
+import { 
+  useMultiFileAuthState, 
+  DisconnectReason, 
+  makeCacheableSignalKeyStore, 
+  fetchLatestBaileysVersion 
+} from '@whiskeysockets/baileys';
+import { makeWASocket } from '../lib/simple.js';
+import { handler } from '../handler.js';
+import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+global.subbots = global.subbots || [];
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const handlerSub = async (m, { conn, args }) => {
+  if (conn.user.jid !== global.conn.user.jid) {
+    return m.reply('❌ Solo puedes crear un sub‑bot desde el bot principal.');
+  }
+
+  let targetNumber = args[0] ? args[0].replace(/[^0-9]/g, '') : m.sender.split('@')[0];
+  if (!targetNumber || targetNumber.length < 8) {
+    return m.reply('❌ Número inválido. Usa: .code 51987654321');
+  }
+
+  const sessionDir = path.join(__dirname, '..', 'session_sub', targetNumber);
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
+
+  // Verificar que no haya un sub‑bot ya activo para ese número
+  const existente = global.subbots.find(sb => sb.id === targetNumber && sb.sock?.user);
+  if (existente) {
+    return m.reply('✅ Ya tienes un sub‑bot activo. Usa *.delsubbot* para eliminarlo.');
+  }
+
+  m.reply(`⏳ Preparando sub‑bot para +${targetNumber}...`);
+
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const { version } = await fetchLatestBaileysVersion();
+
+    const sock = makeWASocket({
+      version,
+      printQRInTerminal: false,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
+      },
+      logger: pino({ level: 'silent' }),
+      browser: ['Ubuntu', 'Chrome', '110.0.5585.95'],
+      connectTimeoutMs: 60_000,
+      keepAliveIntervalMs: 30_000,
+      generateHighQualityLinkPreview: true,
+      defaultQueryTimeoutMs: undefined,
+    });
+
+    let codeRequested = false;
+    let timeoutId;
+
+    const cleanup = (loggedOut = false) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      try { sock.ws.close(); } catch {}
+      const idx = global.subbots.findIndex(sb => sb.id === targetNumber);
+      if (idx !== -1) global.subbots.splice(idx, 1);
+      if (loggedOut && fs.existsSync(sessionDir)) {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+      }
+    };
+
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, qr, lastDisconnect } = update;
+
+      // Solo pedir código cuando aparezca el QR y no esté registrado
+      if (qr && !sock.authState.creds.registered && !codeRequested) {
+        codeRequested = true;
+        try {
+          await sleep(1500);
+          const code = await sock.requestPairingCode(targetNumber);
+          await conn.sendMessage(m.chat, {
+            text: `🔑 *Código de vinculación para +${targetNumber}*\n\n*${code}*\n\n📌 Abre WhatsApp en el número +${targetNumber}\n📲 Ve a *Dispositivos vinculados* > *Vincular un dispositivo* > *Vincular con número de teléfono*\n🔢 Ingresa el código: *${code}*\n\n⏳ Tienes 2 minutos.`
+          }, { quoted: global.fkontak || m });
+
+          // Timeout de 2 minutos para vincular
+          timeoutId = setTimeout(async () => {
+            if (!sock.authState.creds.registered) {
+              await conn.sendMessage(m.chat, { text: `⌛ El código para +${targetNumber} expiró. Vuelve a intentarlo.` });
+              cleanup();
+            }
+          }, 120000);
+        } catch (e) {
+          console.error('Error al obtener código:', e);
+          await conn.sendMessage(m.chat, { text: `❌ Error: ${e.message}` });
+          cleanup();
+        }
+      }
+
+      if (connection === 'open') {
+        if (timeoutId) clearTimeout(timeoutId);
+        const subBotEntry = { id: targetNumber, sock, sessionDir, saveCreds };
+        global.subbots.push(subBotEntry);
+
+        sock.ev.on('messages.upsert', ({ messages }) => handler(messages));
+        sock.ev.on('group-participants.update', handler.participantsUpdate);
+        sock.ev.on('groups.update', handler.groupsUpdate);
+        sock.ev.on('message.delete', handler.deleteUpdate);
+        sock.ev.on('call', handler.callUpdate);
+
+        await conn.sendMessage(m.chat, {
+          text: `✅ *Sub‑bot conectado correctamente.*\n👤 Número: ${sock.user?.id?.split(':')[0]}`
+        }, { quoted: global.fkontak || m });
+        console.log(`🤖 Sub-bot ${targetNumber} conectado.`);
+      }
+
+      if (connection === 'close') {
+        const reason = lastDisconnect?.error?.output?.statusCode;
+        console.log(`Sub-bot ${targetNumber} cerrado. Razón: ${reason}`);
+        if (reason === DisconnectReason.loggedOut) {
+          await conn.sendMessage(m.chat, { text: '❌ Sesión del sub‑bot cerrada permanentemente.' });
+          cleanup(true);
+        }
+        // Para otros cierres, no limpiamos la sesión para permitir reconexión
+      }
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+  } catch (e) {
+    console.error('Error al crear sub-bot:', e);
+    m.reply(`❌ Error: ${e.message}`);
+  }
+};
+
+handlerSub.help = ['code [número]', 'serbot [número]', 'subbot [número]'];
+handlerSub.tags = ['main'];
+handlerSub.command = ['code', 'serbot', 'subbot'];
+
+export default handlerSub;

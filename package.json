@@ -1,0 +1,61 @@
+{
+  "name": "Deivis-bot-MD",
+  "version": "1.0.4-beta",
+  "description": "Deivis Bot, un bot De WhatsApp creado desde cero con wileys",
+  "main": "index.js",
+  "type": "module",
+
+  "directories": {
+    "lib": "lib",
+    "src": "src",
+    "plugins": "plugins"
+  },
+
+  "scripts": {
+    "start": "node index.js"
+  },
+
+  "homepage": "https://github.com/devhades02/Deivis-Bot-MD.git",
+
+  "author": "devhades02",
+
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devhades02/Deivis-Bot-MD.git"
+  },
+
+  "bugs": {
+    "url": "https://github.com/devhades02/Deivis-Bot-MD/issues"
+  },
+
+  "license": "GPL-3.0-or-later",
+
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "npm:wileys",
+    "archiver": "^7.0.1",
+    "awesome-phonenumber": "^4.4.1",
+    "axios": "^0.24.0",
+    "chalk": "^4.1.2",
+    "cfonts": "2.10.1",
+    "figlet": "^1.9.4",
+    "file-type": "^16.5.4",
+    "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.5",
+    "human-readable": "^0.2.1",
+    "jimp": "^0.16.1",
+    "jszip": "^3.10.1",
+    "link-preview-js": "^3.2.0",
+    "moment-timezone": "^0.5.43",
+    "formdata-node": "^5.0.1",
+    "mongoose": "^7.8.8",
+    "node-cache": "^5.1.2",
+    "node-fetch": "^3.3.2",
+    "node-webpmux": "^3.2.1",
+    "pino": "^8.21.0",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.2",
+    "yt-search": "^2.13.1",
+    "ytdl-core": "^4.11.5"
+  }
+}
